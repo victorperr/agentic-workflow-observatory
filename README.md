@@ -9,16 +9,18 @@ Markdown workflow it came from. Runs that pass CI but still failed as agents get
 
 ---
 
+> ⚠️ Experimental / Work in Progress: This project is currently experimental and may contain bugs or breaking changes. Use with caution.
+
 ## Prerequesites
 
-- a Datadog account with LLM Observability enabled
-- a repository already running GitHub Agentic Workflows
+- **Datadog account** with LLM Observability enabled
+- A repository already running GitHub Agentic Workflows
 
 ## The problem
 
 A GitHub agentic workflow run does not fail the way a unit test does. A run can finish with a green check and still:
 
-- post a **useless PR comment** ("LGTM. TODO: check tests."),
+- post a **useless PR comment**,
 - **loop**, calling the same tool with the same arguments five times when one call would do,
 - have its egress **blocked by the AWF firewall**, so `npm install` fails and the agent works around it without saying so,
 - run out of its **AI Credits budget** (`max-ai-credits`) or `max-turns` partway through its reasoning.
