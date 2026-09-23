@@ -1,0 +1,102 @@
+{
+  "title": "GitHub Agentic Workflows: Observatory",
+  "description": "Agentic workflow runs correlated with their repository, PR and Markdown workflow. Managed by Terraform.",
+  "layout_type": "ordered",
+  "template_variables": [
+    { "name": "repo", "prefix": "repo", "available_values": [], "default": "*" },
+    { "name": "workflow", "prefix": "workflow", "available_values": [], "default": "*" }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Agentic runs",
+        "autoscale": true,
+        "precision": 0,
+        "requests": [{ "q": "sum:agentic.run.count{$repo,$workflow}.as_count()", "aggregator": "sum" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Silent failures (green in CI)",
+        "autoscale": true,
+        "precision": 0,
+        "requests": [{
+          "q": "sum:agentic.run.silent_failure{$repo,$workflow}.as_count()",
+          "aggregator": "sum",
+          "conditional_formats": [
+            { "comparator": ">", "value": 0, "palette": "white_on_red" },
+            { "comparator": "<=", "value": 0, "palette": "white_on_green" }
+          ]
+        }]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "AI Credits spent (1 AIC = $0.01)",
+        "autoscale": true,
+        "precision": 1,
+        "requests": [{ "q": "sum:agentic.run.aic{$repo,$workflow}", "aggregator": "sum" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Firewall-blocked requests",
+        "autoscale": true,
+        "precision": 0,
+        "requests": [{ "q": "sum:agentic.run.firewall.blocked_requests{$repo,$workflow}.as_count()", "aggregator": "sum" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Runs by verdict",
+        "show_legend": true,
+        "requests": [{ "q": "sum:agentic.run.count{$repo,$workflow} by {verdict}.as_count()", "display_type": "bars" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Findings by type",
+        "requests": [{ "q": "top(sum:agentic.run.finding{$repo,$workflow} by {finding}.as_count(), 10, 'sum', 'desc')" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "AI Credits by workflow",
+        "requests": [{ "q": "top(sum:agentic.run.aic{$repo,$workflow} by {workflow}, 10, 'sum', 'desc')" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Budget utilization by workflow",
+        "show_legend": true,
+        "requests": [{ "q": "max:agentic.run.budget_utilization{$repo,$workflow} by {workflow}", "display_type": "line" }],
+        "markers": [{ "value": "y = 1", "display_type": "error dashed", "label": "budget" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Tool calls per run by workflow",
+        "show_legend": true,
+        "requests": [{ "q": "avg:agentic.run.tool_calls{$repo,$workflow} by {workflow}", "display_type": "line" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "note",
+        "content": "**Drill into a run:** every run is a trace in [LLM Observability](https://app.${site}/llm/traces?query=%40ml_app%3A${ml_app}) tagged with `gh.repo`, `gh.pr`, `gh.run_id`, `gh.workflow_source` and `aw.finding`. All runs on one PR share a session (`owner/repo#pr-N`).",
+        "background_color": "blue",
+        "font_size": "14",
+        "show_tick": false
+      }
+    }
+  ]
+}

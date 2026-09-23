@@ -1,0 +1,19 @@
+{
+  "action": "completed",
+  "workflow_run": {
+    "id": 1234567890,
+    "name": "PR Reviewer",
+    "path": ".github/workflows/pr-reviewer.lock.yml",
+    "event": "pull_request",
+    "head_branch": "fix/null-check",
+    "head_sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+    "run_attempt": 2,
+    "conclusion": "success",
+    "html_url": "https://github.com/acme/webapp/actions/runs/1234567890",
+    "run_started_at": "2026-09-23T11:00:00Z",
+    "updated_at": "2026-09-23T11:02:00Z",
+    "pull_requests": [{"number": 57}],
+    "actor": {"login": "hubot"},
+    "repository": {"full_name": "acme/webapp"}
+  }
+}

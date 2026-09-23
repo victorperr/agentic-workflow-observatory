@@ -1,0 +1,14 @@
+{
+  "engine_id": "claude",
+  "engine_name": "Claude Code",
+  "model": "claude-sonnet-5",
+  "workflow_name": "PR Reviewer",
+  "run_id": 9876543210,
+  "run_attempt": 1,
+  "repository": "acme/webapp",
+  "ref": "refs/heads/feature/login",
+  "sha": "3f2c9a1b7d4e5f60718293a4b5c6d7e8f9012345",
+  "actor": "octocat",
+  "event_name": "pull_request",
+  "created_at": "2026-09-23T10:00:05Z"
+}

@@ -1,0 +1,5 @@
+datadog_api_key = "replace-me"
+datadog_app_key = "replace-me"
+datadog_site    = "datadoghq.com"
+ml_app          = "github-agentic-workflows"
+notify          = ["@slack-agentic-ops"]

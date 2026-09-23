@@ -1,0 +1,7 @@
+{
+  "engine_id": "copilot",
+  "model": "gpt-5-mini",
+  "workflow_name": "PR Reviewer",
+  "run_id": 1234567890,
+  "repository": "acme/webapp"
+}

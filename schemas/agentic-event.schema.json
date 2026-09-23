@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/victorperr/agentic-workflow-observatory/schemas/agentic-event.schema.json",
+  "title": "Agentic workflow run record",
+  "description": "Normalized record written by `aw-observatory collect --output` for one GitHub Agentic Workflow run.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "trace_id",
+    "verdict",
+    "run",
+    "agent",
+    "usage",
+    "tools",
+    "firewall",
+    "outputs",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "trace_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "LLM Observability trace id, deterministic per repository/run/attempt."
+    },
+    "verdict": {
+      "enum": [
+        "healthy",
+        "degraded",
+        "silent_failure",
+        "failed"
+      ]
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "repository",
+        "run_id",
+        "run_attempt",
+        "workflow_name",
+        "conclusion",
+        "session_id"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "integer"
+        },
+        "run_attempt": {
+          "type": "integer"
+        },
+        "workflow_name": {
+          "type": "string"
+        },
+        "workflow_path": {
+          "type": "string",
+          "description": "Compiled lock file."
+        },
+        "source_path": {
+          "type": "string",
+          "description": "Markdown source of the workflow."
+        },
+        "event": {
+          "type": "string"
+        },
+        "head_branch": {
+          "type": "string"
+        },
+        "head_sha": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "conclusion": {
+          "type": "string"
+        },
+        "pull_request": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "html_url": {
+          "type": "string"
+        },
+        "started_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ended_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "duration_s": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "description": "owner/repo#pr-N, or owner/repo@branch when there is no PR."
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": [
+        "engine",
+        "model"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": [
+        "llm_calls",
+        "input_tokens",
+        "output_tokens",
+        "aic",
+        "aic_estimated",
+        "budget_aic",
+        "budget_utilization"
+      ],
+      "properties": {
+        "llm_calls": {
+          "type": "integer"
+        },
+        "input_tokens": {
+          "type": "integer"
+        },
+        "output_tokens": {
+          "type": "integer"
+        },
+        "cache_read_tokens": {
+          "type": "integer"
+        },
+        "aic": {
+          "type": "number",
+          "description": "AI Credits; 1 AIC = $0.01."
+        },
+        "aic_estimated": {
+          "type": "boolean"
+        },
+        "budget_aic": {
+          "type": "number"
+        },
+        "budget_utilization": {
+          "type": "number"
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "integer"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "distinct": {
+          "type": "integer"
+        }
+      }
+    },
+    "firewall": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "integer"
+        },
+        "blocked": {
+          "type": "integer"
+        },
+        "blocked_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "chars": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "tool_loop",
+              "excessive_tool_calls",
+              "tool_errors",
+              "firewall_blocked",
+              "budget_exhausted",
+              "budget_near_limit",
+              "max_turns_reached",
+              "agent_timeout",
+              "no_output",
+              "safe_output_invalid",
+              "missing_tool",
+              "missing_data",
+              "low_quality_output",
+              "gave_up",
+              "threat_detected"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "warning",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

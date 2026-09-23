@@ -1,0 +1,87 @@
+name: Agentic Workflow Observatory
+description: Send GitHub Agentic Workflow runs to Datadog LLM Observability, correlated with the PR and Markdown workflow, and flag silent failures.
+author: Agentic Workflow Observatory contributors
+branding:
+  icon: activity
+  color: purple
+
+inputs:
+  datadog-api-key:
+    description: Datadog API key.
+    required: true
+  datadog-site:
+    description: Datadog site (datadoghq.com, datadoghq.eu, us3.datadoghq.com, us5.datadoghq.com, ap1.datadoghq.com).
+    default: datadoghq.com
+  ml-app:
+    description: LLM Observability ml_app that groups all agentic workflow traces.
+    default: github-agentic-workflows
+  run-id:
+    description: Agentic workflow run to observe. Defaults to the run that triggered this workflow_run event.
+    default: ${{ github.event.workflow_run.id }}
+  github-token:
+    description: Token with actions:read, used to download the run's artifacts.
+    default: ${{ github.token }}
+  budget-aic:
+    description: The workflow's max-ai-credits budget (gh-aw default is 1000).
+    default: "1000"
+  loop-threshold:
+    description: Identical tool calls (same tool and arguments) before a run is flagged as looping.
+    default: "3"
+  max-tool-calls:
+    description: Tool calls per run before a warning is raised.
+    default: "40"
+  fail-on:
+    description: Fail this job when the verdict is at least this bad (never, silent_failure, degraded).
+    default: never
+  dry-run:
+    description: Print the Datadog payloads instead of sending them.
+    default: "false"
+
+outputs:
+  verdict:
+    description: healthy, degraded, silent_failure or failed.
+    value: ${{ steps.collect.outputs.verdict }}
+  trace-id:
+    description: LLM Observability trace id of the run.
+    value: ${{ steps.collect.outputs.trace-id }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install collector
+      shell: bash
+      run: python -m pip install --quiet "${GITHUB_ACTION_PATH}"
+
+    - name: Download agentic run artifacts
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        RUN_ID: ${{ inputs.run-id }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/aw-run"
+        gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/aw-run" \
+          || echo "::warning::No artifacts could be downloaded for run $RUN_ID"
+
+    - name: Analyze and send to Datadog
+      id: collect
+      shell: bash
+      env:
+        DD_API_KEY: ${{ inputs.datadog-api-key }}
+        DD_SITE: ${{ inputs.datadog-site }}
+        ML_APP: ${{ inputs.ml-app }}
+        BUDGET_AIC: ${{ inputs.budget-aic }}
+        LOOP_THRESHOLD: ${{ inputs.loop-threshold }}
+        MAX_TOOL_CALLS: ${{ inputs.max-tool-calls }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        args=(collect --run-dir "$RUNNER_TEMP/aw-run" --repo-root "$GITHUB_WORKSPACE"
+              --site "$DD_SITE" --ml-app "$ML_APP" --budget-aic "$BUDGET_AIC"
+              --loop-threshold "$LOOP_THRESHOLD" --max-tool-calls "$MAX_TOOL_CALLS"
+              --output "$RUNNER_TEMP/aw-observatory-record.json" --fail-on "$FAIL_ON")
+        if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+        aw-observatory "${args[@]}"

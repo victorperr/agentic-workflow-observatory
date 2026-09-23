@@ -1,0 +1,27 @@
+# Drop this file into .github/workflows/ of any repository that uses GitHub Agentic Workflows.
+# It runs after each listed agentic workflow finishes, whatever the outcome, and ships the
+# run to Datadog. Your agentic workflows themselves need no changes.
+name: Agentic Workflow Observatory
+
+on:
+  workflow_run:
+    workflows: ["PR Reviewer", "Issue Triage"]
+    types: [completed]
+
+permissions:
+  actions: read   # download the agentic run's artifacts
+  contents: read  # read the workflow's Markdown source
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/workflows
+
+      - uses: victorperr/agentic-workflow-observatory@v1
+        with:
+          datadog-api-key: ${{ secrets.DD_API_KEY }}
+          datadog-site: datadoghq.com
+          budget-aic: "1000"

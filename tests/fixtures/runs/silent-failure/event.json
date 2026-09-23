@@ -1,0 +1,21 @@
+{
+  "action": "completed",
+  "workflow_run": {
+    "id": 9876543210,
+    "name": "PR Reviewer",
+    "path": ".github/workflows/pr-reviewer.lock.yml",
+    "event": "pull_request",
+    "head_branch": "feature/login",
+    "head_sha": "3f2c9a1b7d4e5f60718293a4b5c6d7e8f9012345",
+    "run_attempt": 1,
+    "conclusion": "success",
+    "html_url": "https://github.com/acme/webapp/actions/runs/9876543210",
+    "run_started_at": "2026-09-23T10:00:00Z",
+    "updated_at": "2026-09-23T10:06:30Z",
+    "pull_requests": [{"number": 42}],
+    "actor": {"login": "octocat"},
+    "triggering_actor": {"login": "octocat"},
+    "repository": {"full_name": "acme/webapp"}
+  },
+  "repository": {"full_name": "acme/webapp"}
+}

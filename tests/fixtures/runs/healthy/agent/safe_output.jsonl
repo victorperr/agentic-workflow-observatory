@@ -1,0 +1,1 @@
+{"type":"add-comment","body":"### Review\n\n1. `src/auth/session.ts:48`: `user.token` is read before the null check on line 52, so an expired session throws instead of redirecting to login.\n2. `src/auth/session.ts:77`: the refresh timer is never cleared on logout, which leaks one interval per login."}
