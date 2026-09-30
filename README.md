@@ -1,6 +1,6 @@
 # Agentic Workflow Observatory
 
-**Datadog LLM Observability for [GitHub Agentic Workflows](https://github.com/github/gh-aw).**
+**Datadog Agent Observability for [GitHub Agentic Workflows](https://github.com/github/gh-aw).**
 Every agentic workflow run becomes a Datadog trace that knows which repository, pull request, commit and
 Markdown workflow it came from. Runs that pass CI but still failed as agents get flagged.
 
@@ -13,10 +13,10 @@ Markdown workflow it came from. Runs that pass CI but still failed as agents get
 
 ## Prerequesites
 
-- **Datadog account** with LLM Observability enabled
-- A repository already running GitHub Agentic Workflows
+- **Datadog account** 🐶 with Agent Observability enabled
+- A repository already running **GitHub Agentic Workflows**
 
-## The problem
+## 🎯 About The Project
 
 A GitHub agentic workflow run does not fail the way a unit test does. A run can finish with a green check and still:
 
@@ -25,24 +25,23 @@ A GitHub agentic workflow run does not fail the way a unit test does. A run can 
 - have its egress **blocked by the AWF firewall**, so `npm install` fails and the agent works around it without saying so,
 - run out of its **AI Credits budget** (`max-ai-credits`) or `max-turns` partway through its reasoning.
 
-Datadog LLM Observability does capture reasoning, tool calls and cost, but it knows nothing about GitHub.
+Datadog Agent Observability does capture reasoning, tool calls and cost, but it knows nothing about GitHub.
 It cannot tell that a trace belongs to *run 9876543210 of `pr-reviewer.md` on PR #42*.
 This project connects the two.
 
-## What it does
+## 🔎 What it does
 
 ```mermaid
 flowchart LR
-    A["Agentic workflow run<br/>(pr-reviewer.lock.yml)"] -- "completed" --> B["workflow_run trigger<br/>Observatory action"]
-    B -- "gh run download" --> C["gh-aw artifacts<br/>aw_info · agent-stdio.log · token-usage.jsonl<br/>squid access.log · agent_output.json"]
-    C --> D["Collector (Python)<br/>parse → correlate → detect"]
+    A["Your Agentic workflow run"] -- "completed" --> B["workflow_run trigger/ companion workflow trigger"]
+    B -- "gh run download" --> C["gh-aw artifacts - aw_info -agent-stdio.log-token-usage.jsonl-squid access.log-agent_output.json"]
+    C --> D["Collector parse → correlate → detect"]
     D -- "spans + session" --> E["Datadog LLM Observability"]
     D -- "evaluations" --> E
-    D -- "agentic.run.* metrics" --> F["Datadog dashboard + monitors<br/>(Terraform)"]
-    D --> G["GitHub job summary"]
+    D -- "agentic.run.* metrics" --> F["Datadog dashboard + monitors"]
 ```
 
-After each agentic run finishes, a small companion workflow downloads the run's artifacts. gh-aw already uploads
+After each agentic run finishes, a [small companion workflow](examples/workflows/agentic-observatory.yml) downloads the run's artifacts. gh-aw already uploads
 them, so **your agentic workflows need no changes**. The collector then:
 
 1. **Correlates.** It reads the `workflow_run` event to get the repository, PR, SHA, CI conclusion and the compiled lock file. From the lock file it finds the Markdown source (`foo.lock.yml` → `foo.md`).
@@ -90,6 +89,7 @@ jobs:
         with:
           datadog-api-key: ${{ secrets.DD_API_KEY }}
 ```
+Now you can go on Agent Observability and check the traces.
 
 **3. (Optional) Deploy the dashboard and monitors** once per Datadog org:
 
@@ -99,8 +99,15 @@ cp terraform.tfvars.example terraform.tfvars   # add API + app keys, notificatio
 terraform init && terraform apply
 ```
 
-This creates a dashboard (runs by verdict, AI Credits by workflow, findings, budget utilization, tool calls)
-and four monitors: silent failures, firewall blocks, budget pressure, and tool loops.
+The Python collector sends agentic.run.* metrics to Datadog after each run. On their own, those are just raw numbers.The Terraform files create a **dashboard** (runs by verdict, AI Credits by workflow, findings, budget utilization, tool calls) and four monitors: 
+| Monitor | Fires when |
+|---|---|
+| `silent_failures` | At least one run in the last hour was green in CI but actually failed |
+| `firewall_blocks` | The agent tried to reach a domain it isn't allowed to reach |
+| `budget` | A workflow uses more than 80% of its AI Credits budget on average |
+| `tool_loops` | At least 2 runs in 4 hours got stuck repeating the same tool call |
+
+
 
 ### Action inputs
 
@@ -126,11 +133,13 @@ If needed, every input in the "Action inputs" table goes in the with: block of t
           ml-app: github-agentic-workflows
           budget-aic: "300"
           loop-threshold: "3"
-          ...
+          # ...
 ```
 
 
 ## Detectors
+
+### Findings
 
 | Code | Severity | Signal | Source artifact |
 |---|---|---|---|
@@ -146,18 +155,28 @@ If needed, every input in the "Action inputs" table goes in the with: block of t
 | `missing_tool`, `missing_data`, `gave_up` | warning | Agent reported it lacked a tool or data | safe outputs |
 | `threat_detected` | error | gh-aw threat detection flagged the run | `detection_result.json` |
 
-Detector results are also sent as **LLM Observability evaluations** attached to the root span
-(`aw_verdict`, `aw_tool_efficiency`, `aw_firewall_clean`, `aw_budget_utilization`, `aw_output_quality`).
+### Custom Evaluations
+
+We [send](src/aw_observatory/datadog.py#L199-L229) our own custom evaluations : detector results are sent as Agent Observability **evaluations** attached to the root span 
+
+**How they're calculated:** no LLM is involved. Each value is a simple rule applied to the detector results (the `findings`). Every evaluation also gets an `assessment` of pass or fail:
+
+| Evaluation | Type | Value | Pass when |
+|---|---|---|---|
+| `aw_verdict` | categorical | `failed` if CI failed; otherwise `silent_failure` if any **error** finding; otherwise `degraded` if any **warning**; otherwise `healthy` ([detectors.py:168-176](src/aw_observatory/detectors.py#L168-L176)) | verdict is `healthy` or `degraded` |
+| `aw_tool_efficiency` | score 0–1 | unique (tool, arguments) pairs ÷ total tool calls. 10 calls with only 4 distinct ones gives **0.4**. It's 1.0 if there were no calls | no `tool_loop` finding |
+| `aw_firewall_clean` | boolean | `true` if there's no `firewall_blocked` finding | same |
+| `aw_budget_utilization` | score | AI Credits spent ÷ budget (1000 by default) ([model.py:137-138](src/aw_observatory/model.py#L137-L138)) | no `budget_exhausted` / `budget_near_limit` finding |
+| `aw_output_quality` | boolean | `true` if none of `no_output`, `low_quality_output`, `safe_output_invalid` fired | same |
+
+`aw_verdict` and `aw_tool_efficiency` also carry a `reasoning` text: the finding messages for the verdict, and "4 unique of 10 tool calls" for efficiency.
+
 You can filter and chart them next to the traces, and they can feed Datadog's annotation queues and experiments.
 
-### Semantic quality: use Datadog's managed evaluations
-
-You can enable a managed or custom LLM-as-judge evaluation on the `github-agentic-workflows` ml_app in LLM Observability.
-It will grade every run with no extra API key or code here.
 
 ## What you see in Datadog
 
-- **LLM Observability → Traces**: filter by `gh.repo:acme/webapp`, `gh.pr:42`, `aw.verdict:silent_failure` or `aw.finding:firewall_blocked`. The root span's metadata links back to the GitHub run.
+- **Agent Observability → Traces**: filter by `gh.repo:acme/webapp`, `gh.pr:42`, `aw.verdict:silent_failure` or `aw.finding:firewall_blocked`. The root span's metadata links back to the GitHub run.
 - **Sessions**: every agent run on a PR, in order.
 - **Metrics** (`agentic.run.*`): `count`, `silent_failure`, `aic`, `budget_utilization`, `tokens.{input,output,cache_read}`, `tool_calls`, `firewall.blocked_requests`, `duration_seconds`, `finding{finding:<code>}`.
   Metric tags are deliberately low-cardinality (`repo`, `workflow`, `engine`, `model`, `verdict`). Run IDs and PR numbers are only on traces, so custom-metric costs stay bounded.
@@ -209,7 +228,7 @@ tests/                          pytest suite with realistic run fixtures
 ## Limitations
 
 - gh-aw's token log does not include prompt or completion text, so `llm` spans carry token counts and cost but no messages.
-- When artifacts have no per-call timestamps, child spans are laid out evenly across the run window.
+- When artifacts have no per-call timestamps (tool call,...), child spans are laid out evenly across the run window. The order and the count are right, but the exact positions and lengths of the bars might not be real.
 - When the API proxy does not report AI Credits, cost is estimated from list prices in [`pricing.py`](src/aw_observatory/pricing.py) and marked with `*` in the summary.
 - The `workflow_run` event only lists PRs from the same repository, so runs triggered from forks are grouped by branch instead of by PR.
 
