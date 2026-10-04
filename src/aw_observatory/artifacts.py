@@ -9,6 +9,7 @@ by file name anywhere under the run directory and tolerates missing files.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Iterator
@@ -16,6 +17,8 @@ from typing import Any, Iterator
 from aw_observatory.context import parse_time
 from aw_observatory.model import FirewallRequest, LlmCall, RunTelemetry, SafeOutput, ToolCall
 from aw_observatory.pricing import estimate_aic
+
+log = logging.getLogger(__name__)
 
 _FRONTMATTER = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
 
@@ -40,7 +43,8 @@ def _files(run_dir: Path, *names: str) -> list[Path]:
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    except OSError as exc:
+        log.warning("skipping unreadable artifact %s: %s", path, exc)
         return ""
 
 
