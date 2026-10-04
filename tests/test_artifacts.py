@@ -57,6 +57,19 @@ def test_markers_detect_truncated_runs(tmp_path):
     assert artifacts.parse_markers(tmp_path) == {"budget_exhausted", "max_turns_reached"}
 
 
+def test_unreadable_logs_are_skipped(fixtures, monkeypatch):
+    from pathlib import Path
+
+    def denied(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    run_dir = fixtures / "runs/silent-failure"
+    assert artifacts.parse_firewall(run_dir) == []
+    assert artifacts.parse_markers(run_dir) == set()
+    assert artifacts.load_run(run_dir).firewall == []
+
+
 def test_agent_usage_fallback(tmp_path):
     (tmp_path / "agent_usage.json").write_text(json.dumps(
         {"agent_usage": {"model": "claude-opus-5", "input_tokens": 1000, "output_tokens": 50, "aic": 4.2}}

@@ -37,6 +37,13 @@ def _files(run_dir: Path, *names: str) -> list[Path]:
     return sorted(p for p in run_dir.rglob("*") if p.is_file() and p.name in wanted)
 
 
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
 def _read_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8", errors="replace"))
@@ -45,11 +52,7 @@ def _read_json(path: Path) -> Any:
 
 
 def _json_lines(path: Path) -> Iterator[dict]:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return
-    for line in text.splitlines():
+    for line in _read_text(path).splitlines():
         line = line.strip()
         if not line.startswith("{"):
             continue
@@ -128,7 +131,7 @@ def parse_firewall(run_dir: Path) -> list[FirewallRequest]:
     ]
     requests: list[FirewallRequest] = []
     for path in sorted(set(paths)):
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        for line in _read_text(path).splitlines():
             fields = line.split(maxsplit=9)
             if len(fields) < 8:
                 continue
@@ -227,7 +230,7 @@ def parse_safe_outputs(run_dir: Path) -> tuple[list[SafeOutput], list[str]]:
 def parse_markers(run_dir: Path) -> set[str]:
     found: set[str] = set()
     for path in _files(run_dir, "agent-stdio.log"):
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = _read_text(path)
         found.update(name for name, pattern in _MARKERS.items() if pattern.search(text))
     return found
 
@@ -240,7 +243,7 @@ def load_instructions(run_dir: Path, repo_root: Path | None, source_path: str) -
     candidates += _files(run_dir, "prompt.txt", "prompt.md")
     for path in candidates:
         if path.is_file():
-            return _FRONTMATTER.sub("", path.read_text(encoding="utf-8", errors="replace")).strip()
+            return _FRONTMATTER.sub("", _read_text(path)).strip()
     return ""
 
 
